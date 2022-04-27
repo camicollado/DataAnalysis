@@ -1,0 +1,662 @@
+```{r}
+rm(list=ls())
+gc()
+
+library(dplyr)
+```
+Seleccione una base de datos:
+```{r}
+# Se selecciono la base de datos de la encuesta permanenete de hogares de Argentina (EPH).
+library(eph)
+# Se quiere estudiar los efectos que trajo la pandemia, no tanto en el sentido de salud, si no en la organizacion de planes y ayudas que se produjeron a partir de ella.
+# Nos centraremos en los siguientes periodos: pre pandemia (1er trimestre del 2020), en plena pandemia (3er trimestre del 2020) y en un sentido post pandemia, cuando se relajo un poco todo (1er trimestre del 2021).
+df_2020_T1 = get_microdata(year = 2020, trimester = 1, type = "individual")
+df_2020_T3 = get_microdata(year = 2020, trimester = 3, type = "individual")
+df_2021_T1 = get_microdata(year = 2021, trimester = 1, type = "individual")
+
+# Algunas medidas que adopto el gobierno para proteger la economia afectada por la pandemia fueron:
+  # Ingreso familiar de emergencia (IFE) --> buscar condiciones.
+  # Congelamiento de alquileres y suspensión de desalojos.
+  # Suspensión temporaria del corte de servicios por falta de pago.
+  # Suspensión del cierre de cuentas bancarias.
+  # Suspensión de las comisiones por extracción en cajeros automáticos.
+
+# Ahora, se quiere analizar... estas reformas funcionaron en sostener la economia? la crisis post pandemia afecto a la sociedad o el gobierno logro mantener la economia?
+```
+
+1-	¿Que busca obtener con esta base?, formule al menos tres preguntas que motiven la selección de la base. Ejemplo iMDB:
+a.	Como puedo formar un equipo exitoso (actores y directores)
+b.	Que genero de películas es el mas adecuado para las mujeres jóvenes
+c.	Es posible estimar un retorno por tipo de género, actores, etc.
+d.	Hay géneros más exitosos por género, por edad, etc.
+```{r}
+# Como se menciono anteriormente, nuestro analisis sera a partir de las distintas medidas economicas que impuso el gobierno para mantener la estabilidad economica del pais.
+# a) Que regiones fueron mas o menos afectados? por genero? por edad?
+# b) Como evolucionan en el tiempo las variables economicas? 
+# c) Es posible estimar la evolucion de estas variables en el futuro?
+# d) Hay relacion entre la cantidad de planes y el ingreso familiar?
+```
+
+2-	Explique como supone que va a responder a los puntos anteriores.
+a.	Describa como utilizaría la información de la base de datos para responder a los puntos anteriores, por ejemplo: establecería una medida de éxito (facturación, cantidad de vistas, las que tienen mayores calificaciones, mayor cantidad de premios obtenidos, etc. – cuál cree usted que sería la medida más importante y describa esta medida).  Una vez establecida, ¿la medida que haría? agruparía las películas que más facturación tienen, listaria los actores, los directores, etc y establecería una relación, describa un procedimiento un proceso de desarrollo factible.
+
+```{r}
+# Se aclara que las conclusiones se calcularan a partir de una muestra.
+# Como observaremos los datos de las encuestas individuales filtraremos por aquellas encuestas individuales que fueron respondidas. Para eso, se utiliza el campo H15: Entrevista individual realizada.
+df_2020_T1 = df_2020_T1  %>% filter(H15 == 1)
+df_2020_T3 = df_2020_T3 %>% filter(H15 == 1)
+df_2021_T1 = df_2021_T1  %>% filter(H15 == 1)
+# Debido a que la base presenta demasiadas variables que probablemente no aporten al analisis acotaremos las columnas:
+  # CODUSU: Código para distinguir VIVIENDAS, permite aparearlas con Hogares y Personas. Además permite hacer el seguimiento a través de los trimestres.
+  # NRO_HOGAR: Código para distinguir HOGARES.
+  # COMPONENTE:  Nº de orden que se asigna a las personas que conforman cada hogar de la vivienda.
+  # ANO4: Año de relevamiento
+  # TRIMESTRE
+  # REGION: Código de Región 
+      # 01 = Gran Buenos Aires
+      # 40 = Noroeste
+      # 41 = Nordeste
+      # 42 = Cuyo
+      # 43 = Pampeana
+      # 44 = Patagónica
+  # AGLOMERADO 
+  # PONDERA
+  # CH04: Sexo.
+  # CH06: Edad.
+  # CH10: ¿Asiste o asistió a algún establecimiento educativo?(colegio, escuela, universidad)
+  # NIVEL_ED: NIVEL EDUCATIVO
+      # 1 = Primaria Incompleta(incluye educación especial)
+      # 2 = Primaria Completa
+      # 3 = Secundaria Incompleta
+      # 4 = Secundaria Completa
+      # 5 = Superior Universitaria Incompleta
+      # 6 = Superior Universitaria Completa
+      # 7 = Sin instrucción
+      # 9 = Ns./ Nr.
+  # ESTADO: CONDICIÓN DE ACTIVIDAD
+      # 1 = Ocupado
+      # 2 = Desocupado
+      # 3 = Inactivo
+      # 4 = Menor de 10 años
+  # CAT_OCUP: CATEGORÍA OCUPACIONAL (Para ocupados y desocupados con ocupación anterior)
+      # 1 = Patrón
+      # 2 = Cuenta propia
+      # 3 = Obrero o empleado,
+      # 4 = Trabajador familiar sin remuneración
+      # 9 = Ns./Nr.
+  # CAT_INAC: CATEGORÍA DE INACTIVIDAD
+      # 1 = Jubilado/ Pensionado
+      # 2 = Rentista
+      # 3 = Estudiante
+      # 4 = Ama de casa
+      # 5 = Menor de 6 años
+      # 6 = Discapacitado
+      # 7 = Otros
+  # PP02H: En los últimos 12 meses ¿buscó trabajo en algúnmomento?
+  # PP02I: En los últimos 12 meses ¿trabajó en algún momento?
+  # p47T: MONTO DE INGRESO TOTAL INDIVIDUAL 
+  # PONDII: Ponderador para ingreso total individual.
+  # V3_M: Monto del ingreso por INDEMNIZACION POR DESPIDO --> Es interesante por la doble indemnizacion.  
+  # V5_M: Monto del ingreso por SUBSIDIO O AYUDA SOCIAL (EN DINERO) DEL GOBIERNO, IGLESIAS, ETC. --> Total planes. 
+  # ITF: MONTO DEL INGRESO TOTAL FAMILIAR 
+  # IPCF: MONTO DEL INGRESO PER CÁPITA FAMILIAR. 
+  # PONDIH: Ponderador del ingreso total familiar y del ingreso per capita familiar, para hogares.
+
+# Cada registro tiene un número de identificación (CODUSU), que permite relacionar una vivienda con los hogares y personas que la componen a lo largo de los cuatro trimestres en que participa. En la base hogar  todos los hogares que pertenecen a una misma vivienda poseen el mismo CODUSU. Para identificar los hogares se debe utilizar CODUSU y NRO_HOGAR. En la de personas todos los miembros del hogar tienen el mismo CODUSU y NRO_HOGAR pero se diferencian por el número de COMPONENTE.
+# Al querer estudiar la evolucion economica de los individuos en la pandemia nos parecio lo mejor utilizar como variable central para el analisis el monto de ingreso total familiar (ITF). Tambien se debera contrastar con el monto de ingreso por subsidio o ayuda social (V5_M) que nos demostrara el peso de los planes o subsidios del estado. A raiz del plan de doble indemnizacion ofrecido por el gobierno nos parece interesante incluir al analisis la variable monto del ingreso por indemnizacion por despido (V3_M).
+
+# Se tiene en cuenta que se debe hacer una ponderacion de los datos para su correcto analisis. 
+# El campo PONDERA, sin corrección, que se utiliza además para el resto de las variables.
+# Los campos PONDII, PONDIIO, PONDIH con corrección por no respuesta:
+    #PONDII para el tratamiento del ingreso total individual(p47t, decindr, adecindr, rdecindr, pdecindr, gdecindr, idecindr).
+    # PONDIIO para el ingreso de la ocupación principal (p21, pp06c, pp06d, pp08d1, pp08d4, pp08f1, pp08f2, pp08j1, pp08j2,pp08j3, decocur, adecocur, rdecocur, pdecocur, gdecocur, idecocur).
+    #PONDIH para el ingreso total familiar (ITF, decifr, adecifr, rdecifr, pdecifr, gdecifr, idecifr), el ingreso per cápita familiar (IPCF, deccfr, adecifr, rdecifr, pdecifr, gdecifr, idecifr).
+
+df_2020_T1 = df_2020_T1 %>% select(CODUSU,NRO_HOGAR,COMPONENTE ,ANO4,TRIMESTRE, REGION, AGLOMERADO,PONDERA,CH04,CH06,CH10,NIVEL_ED,ESTADO,CAT_OCUP,CAT_INAC,PP02H,PP02I,P47T,PONDII,V3_M,V5_M,ITF,IPCF,PONDIH)
+df_2020_T3 = df_2020_T3 %>% select(CODUSU,NRO_HOGAR,COMPONENTE,ANO4,TRIMESTRE, REGION, AGLOMERADO,PONDERA,CH04,CH06,CH10,NIVEL_ED,ESTADO,CAT_OCUP,CAT_INAC,PP02H,PP02I,P47T,PONDII,V3_M,V5_M,ITF,IPCF,PONDIH)
+df_2021_T1 = df_2021_T1 %>% select(CODUSU,NRO_HOGAR,COMPONENTE,ANO4,TRIMESTRE, REGION, AGLOMERADO,PONDERA,CH04,CH06,CH10,NIVEL_ED,ESTADO,CAT_OCUP,CAT_INAC,PP02H,PP02I,P47T,PONDII,V3_M,V5_M,ITF,IPCF,PONDIH)
+```
+
+3-	Describa las características de cada una de las variables (tipo, faltantes, valores extremos). Utilice funModeling y haga una descripción de la calidad de los datos y las características (numérico, string, etc). En caso de ser posible, incorporar un análisis gráfico de los resultados.
+```{r}
+library(funModeling)
+#Analisis de variables categoricas con grafico de frecuencias
+library(dplyr)
+library(funModeling)
+freq(df_2020_T1, input=c("REGION", "AGLOMERADO", "CH04", "CH06", "CH10", "NIVEL_ED"))
+freq(df_2020_T1$REGION)
+freq(df_2020_T1$AGLOMERADO)
+freq(df_2020_T1$CH04)
+freq(df_2020_T1$CH06)
+freq(df_2020_T1$CH10)
+freq(df_2020_T1$NIVEL_ED)
+freq(df_2020_T1$CAT_OCUP)
+freq(df_2020_T1$CAT_INAC) 
+freq(df_2020_T1$PP02H)
+freq(df_2020_T1$PP02I)
+```
+```{r}
+df_status(df_2020_T1)
+df_status(df_2020_T3)
+df_status(df_2021_T1)
+
+```
+
+4-	Establezca cuales de las variables seleccionadas va a utilizar, cual va descartar y por qué. En el caso de valores faltantes y extremos, defina una estrategia para lidiar con ellos.  En caso de ser posible, incorporar un análisis gráfico de los resultados.
+```{r}
+# Ponderacion: 
+# Debido a que esta base es una muestra de la poblacion Argentina se debe normalizar para que sea representativa a la misma. Para eso se utilizan los ponderadores PONDERA, PONDII y PONDIH. Estos se calculan para cada individuo y demuestran que tan representativos son para el resto de la poblacion. Es decir, si una persona encuestada tiene PONDII 50 quiere decir que el ingreso individual esa persona representa a 50 individuos de toda la poblacion. Identificamos tambien que existen ponderadores 0, que en un principio nos resulto raro, descubrimos que se debia a que no todas los individuos responden la totalidad de la encuesta. En el caso de que los ponderadores sean 0 las variables que se ponderan a partir de ellas son -9, que es el defaul para decir que no se respondio la encuesta.
+df_2020_T1 %>% filter(PONDII == 0 & P47T != -9) # Se demuestra que no hay ningun registro en el que el ponderador sea cero.
+# A la hora de hacer las ponderaciones nos cruzamos con dos metodos: repeticiones y multiplicacion.
+# El metodo de ponderacion mediante la repeticion expande la muestra. Es decir, en el caso de que se este normalizando la variable de monto de ingreso individual usando el ponderador PONDII, se repitira PONDII veces el ingreso de esa persona. Este metodo tiene sentido porque no se masifican los datos, si no que se aumenta en su proporcion.
+# El metodo de multiplicacion masifica la variable de un individuo por todos los individuos que representa. Es decir, continuando con el ejemplo anterior, en el caso de que el ingreso indivudual de la persona sea de $10 y represente a 10 personas, su ingreso ponderado se denotaria como de $10 * 10 = 100. Se debe tener mas cuidado con el analisis que se lleva a la hora de hacer comparaciones porque al ser una variable asociada a la personas encuestada no se puede concluir que su ingreso es de $100, seria un error muy grave de analisis.
+# Para entenderlo mejor mediante un ejemplo suponemos que queremos calcular la cantidad de individuos que tienen un ingreso mayor a $50000, si utilizaramos el metodo de repeticion nos devolveria la cantidad representativa a la poblacion y seria beneficiosa para el analisis. Para utilizar el metodo de multiplicacion primero se deberia ponderar la variable condicion porque si no no haria sentido para el analisis Pero el metodo de multiplicacion no hace sentido al analisis porque la masificacion del ingreso de esa persona a su PONDII no tiene relevancia con el ingreso de una persona. Para corregir este analisis se debe comparar en el ingreso ponderado por la condicion ponderada y en el caso que se cumpla se sumariza el ponderador, que es la cantidad de personas que representa.
+# Se entiende que hay que ser cuidadososos con las conclusiones que damos y como nos referimos a los datos.
+
+# Repeticion: rep(P47T, PONDII)
+# Multiplicacion: P47 * PONDII
+
+```
+
+
+5-	Haga un listado de variables con las que supone que va a responder las preguntas. Haga un cuadro con las variables y una descripción de cada una de ellas (mínimos, máximos, promedios, unidades de medida, rangos, cuartiles, etc.). ¿Los valores obtenidos merecen, a su criterio, algún ajuste? ¿Coinciden con lo que usted espera? ¿Son razonables? En caso de ser posible, incorporar un análisis gráfico de los resultados.
+```{r}
+# El dataset presenta una regla de default en la que se insertan los valores -9, 9, 99, 999 y 9999 para la variable "No Sabe / No Responde".
+# Por eso, solo para el estudio de las variables decidimos convertir a nulos esos valores para que no afecten al analisis posterior.
+summary(df_2020_T1 %>% mutate(CAT_OCUP = ifelse(CAT_OCUP == 9, NA, CAT_OCUP)) %>% mutate(P47T = ifelse(P47T == -9, NA, P47T)) %>% mutate(V3_M = ifelse(V3_M == -9, NA, V3_M)) %>% mutate(V5_M = ifelse(V5_M == -9, NA, V5_M)))
+summary(df_2020_T3 %>% mutate(CAT_OCUP = ifelse(CAT_OCUP == 9, NA, CAT_OCUP)) %>% mutate(P47T = ifelse(P47T == -9, NA, P47T)) %>% mutate(V3_M = ifelse(V3_M == -9, NA, V3_M)) %>% mutate(V5_M = ifelse(V5_M == -9, NA, V5_M)) )
+summary(df_2021_T1 %>% mutate(CAT_OCUP = ifelse(CAT_OCUP == 9, NA, CAT_OCUP)) %>% mutate(P47T = ifelse(P47T == -9, NA, P47T)) %>% mutate(V3_M = ifelse(V3_M == -9, NA, V3_M)) %>% mutate(V5_M = ifelse(V5_M == -9, NA, V5_M)))
+```
+
+```{r}
+library(tidyverse)
+```
+
+```{r}
+# Valores Extremos: 
+# La mayoria de las variables son categoricas, por lo que no se puede hacer analisis de outliers sobre ellas.
+# Las variables existentes cuantitativas son montos de ingreso (P47T, V3_M, V5_M, ITF y IPCF). Estas variables siguen una distribucion Lognormal por lo que hay muchas variables de valores bajos y muy pocas de valores muy altos. Como podemos ver en el grafico:
+enframe(rep(df_2020_T1$ITF, df_2020_T1$PONDIH))  %>%  ggplot() + geom_histogram(aes(value))
+enframe(rep(df_2020_T1$ITF, df_2020_T1$PONDIH)) %>% filter(value >= 1000000)  %>%  ggplot() + geom_histogram(aes(value))
+# Por esto, si estudiaramos los valores extremos encontrariamos muchos de ellos ya que los valores maximos tienden a ser muy altos y alejados del tercer cuartil. 
+boxplot(enframe(rep(df_2020_T1$ITF, df_2020_T1$PONDIH))$value)
+# Es por eso que decidimos no normalizar los valores extremos ya que no consideramos que realmente lo sean y queremos estudiar en la realidad los ingresos.
+```
+
+
+6-	Como se relacionan las variables en el estudio, utilice las herramientas del curso para determinar aspectos tales como (en este caso los puntos son orientativos, determinar puntos de análisis en función de las preguntas a contestar propuestas en el punto 1. ,¿cuales son las relaciones relevantes? ¿Cuales las irrelevantes?):
+a.	Ejemplo dataset películas: 
+i.	Hay diferencias significativas en la calificación otorgada por los hombres y las mujeres
+ii.	Las calificaciones hechas por el espectador son independientes de la edad
+iii.	Es posible construir agrupamientos en tornos a estas características
+iv.	Si hay diferencias entre las calificaciones a series y películas. 
+```{r}
+
+# Para el analisis de correlaciones entre variables se separaron las variable numericas. Todas las variables menos el CODUSU son numericas, pero no todas ellas son cuantitativas y estaria mal por ejemplo inferir que a mayor sea la region (en numero) mayor es el ponderador. Por eso, solo dejamos las variables cuantitativas. No se ponderan las variables porque tendrian una correlacion falsa con las variables ponderadoras.
+cor(df_2020_T1 %>% select(P47T, V3_M, V5_M, ITF, IPCF, PONDERA, PONDII, PONDIH))
+cor(df_2020_T3 %>% select(P47T, V3_M, V5_M, ITF, IPCF, PONDERA, PONDII, PONDIH))
+cor(df_2021_T1 %>% select(P47T, V3_M, V5_M, ITF, IPCF, PONDERA, PONDII, PONDIH))
+    
+```
+
+
+7.  En base a las técnicas de análisis aprendidas, establecer una relación razonable entre ellas y las preguntas propuestas en el primer punto. Ej: Si se busca segmentar, relacionar con K-Medias. Si se busca encontrar una relación particular entre dos variables, relacionar con regresión. ¿Cual es la(s) técnica(s) elegidas? ¿Por qué esa(s) y no otra(s)? ¿Es posible combinar varias técnicas para llegar a un mejor resultado?
+
+8. Aplicar la técnica propuesta en el punto anterior, interpretarla y vincular la interpretación a la respuesta de la pregunta. En caso de ser posible, incorporar un análisis gráfico de los resultados. A su criterio, ¿Cuales son los alcances que tiene el algoritmo y cuales son las limitaciones a la hora de responder la pregunta?
+```{r}
+#Clusters
+library(dplyr)
+library(tidyverse)
+library(factoextra)
+# Para hacer clusters, al tener tantas variables, las bases son muy pesadas y se acaba la memoria rapidamente. Mas en el caso de hacer la ponderacion de las mismas. Por eso decidimos, teniendo en cuenta que va a ser un analisis de la muestra y no del total de la poblacion, hacer el analisis sin hacer ponderaciones, identificar que variables repercuten en mayor medida en las agrupaciones e identificar si estos clusters se repiten en las variables seleccionadas y ponderadas.
+
+#Grafico "Elbow" para ver el numero optimo de cluster
+#Usamos scale() ya que las variables son de dimensionaes diferentes
+# Cuando intentamos hacer el clustering nos surgia un error de que la base tenia NAs aunque no era asi, como analizamos previamente con df_status. Hicimos otro df_status sobre la base escalada y las variables ANO4 y TRIMESTRE se convertian en su totalidad en NAs. Como nuestras bases estaban divididas por trimestre y año nos parecio lo mejor deshacernos de estas variables ya que tampoco tenian variacion y no iban a ser prudentes para el analisis.
+df_status(scale(df_2020_T1 %>% select(-CODUSU))) # Hay NAs en ANO4 y TRIMESTRE
+
+```
+```{r}
+#Análisis de monto de planes sociales (V5_M) por region a lo largo del tiempo
+
+df1 <- df_2020_T1 %>% select(REGION, ITF, V5_M)
+df2 <- df_2020_T3 %>% select(REGION, ITF, V5_M)
+df3 <- df_2021_T1 %>% select(REGION, ITF, V5_M)
+
+
+#Clusters 2020 T1
+library(tidyverse)
+library(factoextra)
+#Cantidad de clusters
+wss = c()
+df = scale(df1)
+for(i in 1:15){
+  km_m = kmeans(df,i, iter.max = 50)
+  wss = c(wss,km_m$tot.withinss)
+}
+wss %>% 
+  enframe() %>% 
+  ggplot(aes(name,value))+
+           geom_point()+
+           geom_line()+
+           ylab("tot.withinss")+
+           xlab("n_cluster")
+#nro de clusters: 5
+km.res <- kmeans(x = scale(df1), 5, nstart = 50)
+fviz_cluster(km.res, data = scale(df1), frame.type = "convex")
+#-------------------------------------------------------------------------------
+#Clusters 2020 T3
+#Cantidad de clusters
+wss = c()
+df = scale(df2)
+for(i in 1:15){
+  km_m = kmeans(df,i, iter.max = 50)
+  wss = c(wss,km_m$tot.withinss)
+}
+wss %>% 
+  enframe() %>% 
+  ggplot(aes(name,value))+
+           geom_point()+
+           geom_line()+
+           ylab("tot.withinss")+
+           xlab("n_cluster")
+#nro de clusters: 4
+km.res <- kmeans(x = scale(df2), 5, nstart = 50)
+fviz_cluster(km.res, data = scale(df2), ellipse.type = "convex")
+#-------------------------------------------------------------------------------
+#Clusters 2020 T1
+#Cantidad de clusters
+wss = c()
+df = scale(df3)
+for(i in 1:15){
+  km_m = kmeans(df,i, iter.max = 50)
+  wss = c(wss,km_m$tot.withinss)
+}
+wss %>% 
+  enframe() %>% 
+  ggplot(aes(name,value))+
+           geom_point()+
+           geom_line()+
+           ylab("tot.withinss")+
+           xlab("n_cluster")
+#nro de clusters: 5
+km.res <- kmeans(x = scale(df3), 5, nstart = 50)
+fviz_cluster(km.res, data = scale(df3), ellipse.type = "convex")
+
+#Nos quedamos con el 2020 T3
+km<- kmeans(x = scale(df2), 4, nstart = 50)
+df2["cluster"] <- km$cluster
+
+
+df2 %>% group_by(cluster) %>% ITFm=mean(df2$ITF)
+datos_resumidos <- df2 %>% group_by(cluster) %>% summarise(mean(ITF), mean(V5_M))
+```
+
+```{r}
+#probar hacer PCA con mas variables
+df4 <- df_2020_T3 %>% select(REGION, CH04, CH06, NIVEL_ED, ESTADO, V3_M, V5_M, ITF)
+
+#Cantidad de clusters
+wss = c()
+df = scale(df4)
+for(i in 1:15){
+  km_m = kmeans(df4,i, iter.max = 50)
+  wss = c(wss,km_m$tot.withinss)
+}
+wss %>% 
+  enframe() %>% 
+  ggplot(aes(name,value))+
+           geom_point()+
+           geom_line()+
+           ylab("tot.withinss")+
+           xlab("n_cluster")
+#nro de clusters: 4
+
+#Grafico de clusters
+km.res <- kmeans(x = scale(df4), 4, nstart = 50)
+fviz_cluster(km.res, data = scale(df4), ellipse.type = "convex")
+```
+
+```{r}
+# por la cantidad de overlap que hay vamos a probar PCA+clusters
+library("NbClust")
+library("FactoMineR")
+library(ncpen)
+library(aweSOM)
+library(soc.ca)
+
+#hacer pca
+pca=PCA(df4, scale=TRUE)
+
+#agregar dim 1 y dim 2 al dataset
+df4 = cbind(df4,pca$ind$coord[,1:2]) %>%  as_tibble()
+
+#cluster
+km <- kmeans(x = scale(df4), 4, nstart = 50)
+
+#Agrego clusters al df que tiene PCA
+df4["clusters"] = as.factor(km$cluster)
+
+#grafico
+df4 %>%  ggplot(aes(Dim.1, Dim.2)) + geom_point(aes(col= as.factor(clusters)))
+
+```
+```{r}
+#como PCA + cluster no resuleve el overlap, probamos hacer Analisis factorial
+
+library(nFactors)
+library(GPArotation)
+library(tidyverse)
+library(ggcorrplot)
+library(RColorBrewer)
+library(gplots)
+library(semPlot)
+
+df5 <- df_2020_T3 %>% select(V3_M, V5_M, ITF)
+
+matrizCorr = cor(df5)
+
+#Calcular autovectores y autovalores
+eigens <- eigen(matrizCorr)
+
+#Visualización de Correlación
+ggcorrplot(matrizCorr)
+
+#Cantidad de fact
+#viz 1
+(eigens$values/sum(eigens$values)) %>% enframe() %>% ggplot(aes(name,value))+ geom_col()
+#viz 2
+eigendf = enframe(eigens$values)
+eigendf$random = eigens$values
+nS = nScree(matrizCorr) 
+nS$Components
+plotnScree(nS) 
+
+nfactors=1
+
+#Hacer analisis factorial
+f = factanal(df5, factors=nfactors, rotation = 'varimax',scores="Bartlett")
+
+#ver el peso de cada factor
+f$loadings
+
+# grafico para ver las cargas factoriales de cada factor
+semPaths(f, what="est", residuals=FALSE,
+         cut=0.1, posCol=c("white", "darkgreen"), negCol=c("white", "red"),
+         edge.label.cex=0.75, nCharNodes=7)
+
+```
+```{r}
+
+library(psych)
+library(corrplot)
+library("psych")
+library(ggplot2)
+library(car)
+
+KMO(cor(df6))
+KMO(cor(df7))
+KMO(cor(df8))
+
+
+#Analisis factorial de ingresos para plena pandemia
+df6 <- df_2020_T3 %>% select(P21, TOT_P12, V2_M, V3_M, V4_M, V5_M, V8_M, V9_M, V10_M, V11_M, V12_M, V18_M, V19_AM, V21_M)
+matrizCorr = cor(df6)
+eigens <- eigen(matrizCorr)
+ggcorrplot(matrizCorr)
+(eigens$values/sum(eigens$values)) %>% enframe() %>% ggplot(aes(name,value))+ geom_col()
+#cantidad de factores: 
+eigendf = enframe(eigens$values)
+eigendf$random = eigens$values
+nS = nScree(matrizCorr) 
+nS$Components
+plotnScree(nS) 
+#cantidad de factores: 1
+nfactors=1
+
+#Hacer analisis factorial
+f = factanal(df6, factors=nfactors, rotation = 'varimax',scores="Bartlett")
+
+#ver el peso de cada factor
+f$loadings
+
+# grafico para ver las cargas factoriales de cada factor
+semPaths(f, what="est", residuals=FALSE,
+         cut=0.1, posCol=c("white", "darkgreen"), negCol=c("white", "red"),
+         edge.label.cex=0.75, nCharNodes=7)
+
+#Conclusiones
+# en el ingreso peso mucho V2_M: jubilacion o pension
+# en menor medida V21_M: aguinaldo
+# negativamente P21: monto de la ocupacion principal
+# negativamente V5_M: planes sociales o ayudas economicas
+
+```
+
+```{r}
+#Analisis factorial de ingresos para pre pandemia
+df7 <- df_2020_T1 %>% select(P21, TOT_P12, V2_M, V3_M, V4_M, V5_M, V8_M, V9_M, V10_M, V11_M, V12_M, V18_M, V19_AM, V21_M)
+matrizCorr = cor(df7)
+eigens <- eigen(matrizCorr)
+ggcorrplot(matrizCorr)
+(eigens$values/sum(eigens$values)) %>% enframe() %>% ggplot(aes(name,value))+ geom_col()
+#cantidad de factores: 1
+eigendf = enframe(eigens$values)
+eigendf$random = eigens$values
+nS = nScree(matrizCorr) 
+nS$Components
+plotnScree(nS) 
+#cantidad de factores: 1
+nfactors=1
+
+#Hacer analisis factorial
+f = factanal(df7, factors=nfactors, rotation = 'varimax',scores="Bartlett")
+
+#ver el peso de cada factor
+f$loadings
+
+# grafico para ver las cargas factoriales de cada factor
+semPaths(f, what="est", residuals=FALSE,
+         cut=0.1, posCol=c("white", "darkgreen"), negCol=c("white", "red"),
+         edge.label.cex=0.75, nCharNodes=7)
+
+#Conclusion
+# positivamente V2_M: jubilacion o pension
+# negativamente P21: monto de la ocupacion principal
+# en menor medida V21_M: aguinaldo
+```
+
+```{r}
+#Analisis factorial de ingresos para post pandemia
+df8 <- df_2021_T1 %>% select(P21, TOT_P12, V2_M, V3_M, V4_M, V5_M, V8_M, V9_M, V10_M, V11_M, V12_M, V18_M, V21_M)
+matrizCorr = cor(df8)
+eigens <- eigen(matrizCorr)
+ggcorrplot(matrizCorr)
+(eigens$values/sum(eigens$values)) %>% enframe() %>% ggplot(aes(name,value))+ geom_col()
+#cantidad de factores: 1
+eigendf = enframe(eigens$values)
+eigendf$random = eigens$values
+nS = nScree(matrizCorr) 
+nS$Components
+plotnScree(nS) 
+#cantidad de factores: 1
+nfactors=1
+
+#Hacer analisis factorial
+f = factanal(df8, factors=nfactors, rotation = 'varimax',scores="Bartlett")
+
+#ver el peso de cada factor
+f$loadings
+
+# grafico para ver las cargas factoriales de cada factor
+semPaths(f, what="est", residuals=FALSE,
+         cut=0.1, posCol=c("white", "darkgreen"), negCol=c("white", "red"),
+         edge.label.cex=0.75, nCharNodes=7)
+
+#Conclusion
+# positivamente V2_M: jubilacion o pension
+# negativamente P21: monto de la ocupacion principal
+# en menor medida V21_M: aguinaldo
+```
+```{r}
+
+#Analisis factorial de ingresos para post pandemia
+df8 <- df_2021_T1 %>% select(P21, TOT_P12, V2_M, V3_M, V4_M, V5_M, V8_M, V9_M, V10_M, V11_M, V12_M, V18_M, V21_M)
+matrizCorr = cor(df8)
+eigens <- eigen(matrizCorr)
+ggcorrplot(matrizCorr)
+(eigens$values/sum(eigens$values)) %>% enframe() %>% ggplot(aes(name,value))+ geom_col()
+#cantidad de factores: 1
+eigendf = enframe(eigens$values)
+eigendf$random = eigens$values
+nS = nScree(matrizCorr) 
+nS$Components
+plotnScree(nS) 
+#cantidad de factores: 1
+nfactors=1
+
+#Hacer analisis factorial
+f = factanal(df8, factors=nfactors, rotation = 'varimax',scores="Bartlett")
+
+#ver el peso de cada factor
+f$loadings
+
+# grafico para ver las cargas factoriales de cada factor
+semPaths(f, what="est", residuals=FALSE,
+         cut=0.1, posCol=c("white", "darkgreen"), negCol=c("white", "red"),
+         edge.label.cex=0.75, nCharNodes=7)
+
+#Conclusion
+# positivamente V2_M: jubilacion o pension
+# negativamente P21: monto de la ocupacion principal
+# en menor medida V21_M: aguinaldo
+```
+```{r}
+
+```
+
+```{r}
+edf6 <- data.frame(P21=rep(df_2020_T1$P21, df_2020_T1$PONDII))
+edf6 <- edf6 %>% mutate (TOT_P12 = rep(df_2020_T1$TOT_12, df_2020_T1$PONDII), V2_M=rep(df_2020_T1$V2_M, df_2020_T1$PONDII), V3_M=rep(df_2020_T1$V3_M, df_2020_T1$PONDII), V4_M=rep(df_2020_T1$V4_M, df_2020_T1$PONDII), V5_M=rep(df_2020_T1$V5_M, df_2020_T1$PONDII), V8_M=rep(df_2020_T1$V8_M, df_2020_T1$PONDII), V9_M=rep(df_2020_T1$V9_M, df_2020_T1$PONDII), V10_M=rep(df_2020_T1$V10_M, df_2020_T1$PONDII), V11_M=rep(df_2020_T1$V11_M, df_2020_T1$PONDII), V12_M=rep(df_2020_T1$V12_M, df_2020_T1$PONDII), V18_M=rep(df_2020_T1$V18_M, df_2020_T1$PONDII), V19_AM=rep(df_2020_T1$V19_AM, df_2020_T1$PONDII), V21_M=rep(df_2020_T1$V21_M, df_2020_T1$PONDII))
+```
+
+
+```{r}
+#MCA
+df10 <- df10 %>% mutate( CH04 = as.factor(df_2020_T3$CH04))
+df10 <- df10 %>% mutate(CH06=as.factor(df_2020_T3$CH06), ESTADO = as.factor(df_2020_T3$ESTADO), CAT_INAC = as.factor(df_2020_T3$CAT_INAC))
+df_status(df10)
+mca=MCA(df10,graph = T)
+fviz_screeplot(mca, addlabels = TRUE, ylim = c(0, 50))
+p1=fviz_mca_var(mca,
+                col.var = "contrib", # Color by contributions to the PC
+                gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+                repel = TRUE     # Avoid text overlapping
+                )
+p1
+
+```
+```{r}
+base_individual <- get_microdata(year = 2021,
+                                 trimester = 1,
+                                 type='hogar',
+                                 vars = c('V5','REGION','II7','V1', 'V2'))
+
+
+bases_bind <- base_individual %>% mutate(V5 = ifelse(V5 == 9, NA, V5)) %>% mutate(REGION = ifelse(REGION ==9, NA,REGION)) %>% mutate(II7 = ifelse(II7 == 9, NA, II7)) %>% mutate(V1 = ifelse(V1 == 9, NA, V1)) %>% mutate(V2 = ifelse(V2 == 9, NA, V2))
+
+
+bases_bind <- drop_na(bases_bind)
+
+
+bases_bind <- bases_bind %>% mutate('V5'=as.factor(V5), 'REGION'= as.factor(REGION), 'II7'=as.factor(II7), 'V1'=as.factor(V1), 'V2'=as.factor(V2))
+
+MCA <- MCA(bases_bind, graph=T)
+fviz_screeplot(MCA, addlabels = TRUE, ylim = c(0, 50))
+p2=fviz_mca_var(MCA,
+                col.var = "contrib", # Color by contributions to the PC
+                gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+                repel = TRUE     # Avoid text overlapping
+                )
+p2
+
+
+
+
+```
+```{r}
+base_individual <- get_microdata(year = 2019,
+                                 trimester = 1,
+                                 type='hogar',
+                                 vars = c('V5','REGION','II7','V1', 'V2'))
+
+bases_bind <- bases_bind %>% mutate(V5 = ifelse(V5 == 9, NA, V5)) %>% mutate(REGION = ifelse(REGION ==9, NA,REGION)) %>% mutate(II7 = ifelse(II7 == 9, NA, II7)) %>% mutate(V1 = ifelse(V1 == 9, NA, V1)) %>% mutate(V2 = ifelse(V2 == 9, NA, V2))
+
+
+bases_bind <- drop_na(bases_bind)
+
+
+bases_bind <- bases_bind %>% mutate('V5'=as.factor(V5), 'REGION'= as.factor(REGION), 'II7'=as.factor(II7), 'V1'=as.factor(V1), 'V2'=as.factor(V2))
+
+MCA <- MCA(bases_bind, graph=T)
+fviz_screeplot(MCA, addlabels = TRUE, ylim = c(0, 50))
+p2=fviz_mca_var(MCA,
+                col.var = "contrib", # Color by contributions to the PC
+                gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+                repel = TRUE     # Avoid text overlapping
+                )
+p2
+```
+```{r}
+# Test de Hipotesis:
+# Se quiere conocer la variacion de el monto de ingreso por subsidio o planes sociales en los tres trimestres predeterminados. Para eso, ponderamos estas variables segun su respectivo ponderador. En el caso de V5_M, al ser una proporcion del Monto total de ingreso, se pondera usando la repeticion de la variable segun PONDIH.
+a = rep(df_2020_T1$V5_M, df_2020_T1$PONDIH)
+b = rep(df_2020_T3$V5_M, df_2020_T3$PONDIH)
+c = rep(df_2021_T1$V5_M, df_2021_T1$PONDIH)
+# Como los vectores son de distinto tamaño no se puede realizar la comparacion entre las diferencias de medias de la poblacion de datos (obtenida ponderando la base), por ende, se extrae una muestra aleatoria de igual tamaño de las tres bases y se hara un estudio para saber si hay una diferencia de monto de ingreso por subsidios estadisticamente significativos mediante una prueba de hipotesis. 
+a = sample(a,200)
+b= sample(b,200)
+c = sample(c,200)
+# X1 = Monto de ingreso por subsidio (V5_M) en el primer trimestre del 2020.
+# X2 = Monto de ingreso por subsidio (V5_M) en el tercer trimestre del 2020.
+# Hipotesis:
+# H0: mu(a) = mu(b)
+# H1: mu(a) <> mu(b) --> Existen diferencias significativas.
+# Test Bilateral
+# CR: p-value <= 0.05
+t.test(a,b, mu=0, alternative = "two.sided", conf.level = 0.95)
+# Como el p-value < 0.0003, se rechaza H0, se ve una diferencia significativa entre los montos de ingreso del primer y tercer trimestre. 
+
+# Lo mismo se estudia para los periodos de plena pandemia (3er trimestre 2020) y el trimestre de relajo posterior a la pandemia (1er trimestre 2021).
+# X2 = Monto de ingreso por subsidio (V5_M) en el tercer trimestre del 2020.
+# X3 = Monto de ingreso por subsidio (V5_M) en el primer trimestre del 2021.
+# Hipotesis:
+# H0: mu(b) = mu(c)
+# H1: mu(b) <> mu(c) --> Existen diferencias significativas.
+# Test Bilateral
+# CR: p-value <= 0.05
+t.test(b,c, mu=0, alternative = "two.sided", conf.level = 0.95)
+# Como el p-value < 0.0016 , se rechaza H0, se ve una diferencia significativa entre los montos de ingreso del tercer trimestre del 2020 y el primer trimestre del 2021.
+```
+```{r}
+df20 <- get_microdata(year = 2020, trimester = 1, type='hogar', vars = c('V5', 'PONDERA')) %>% filter(V5 != 9)
+df21 <- get_microdata(year = 2021, trimester = 1, type='hogar', vars = c('V5', 'PONDERA')) %>% filter(V5 != 9)
+df20 <- data.frame(rep(df20$V5, df20$PONDERA))
+df21 <- data.frame(rep(df21$V5, df21$PONDERA))
+df20 <- df20 %>% mutate(V5= as.factor(rep.df20.V5..df20.PONDERA.))
+df21 <- df21 %>% mutate(V5= as.factor(rep.df21.V5..df21.PONDERA.))
+a = sample(df20$V5,200)
+b= sample(df21$V5,200)
+summary(a)
+summary(b)
+n0=21
+n1=33
+t0=200
+t1=200
+binom.test(n1, t1, p=n0/t0 , alternative = "greater") 
+#es significativo
+#concluimos que durante la pandemia mas cantidad de poblacion recibió planes sociales
+```
+
+
+
