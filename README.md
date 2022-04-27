@@ -18,7 +18,7 @@ Este proyecto consiste de la normalización, limpieza y exploración de grandes 
 
 [**Gráficos exploratorios**](https://cpettinato.github.io/infovis/TP_Proyecto.html)
 
-+ Mas información: [estado del dataset](), [informe]() y [queries]()
++ Mas información: [estado del dataset](https://github.com/camicollado/DataAnalysis/blob/main/Backstage%20Proyecto%20L%C3%ADnea%20147.pdf), [informe](https://github.com/camicollado/DataAnalysis/blob/main/Trabajo%20Final%20Linea%20147%20-%20Proyecto%20I.pdf) y [queries](https://github.com/camicollado/DataAnalysis/blob/main/Script%20147.sql)
 + Compañeras de equipo: [Abril Noguera](https://github.com/abrilnoguera), [Camila Pettinato](https://github.com/cpettinato)
 
 ## Visualizaciones
