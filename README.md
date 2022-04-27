@@ -13,5 +13,12 @@ Algunas de las medidas observadas son: IFE, congelamiento de alquileres, prohibi
 + Compañeras de equipo: [Abril Noguera](https://github.com/abrilnoguera), [Camila Pettinato](https://github.com/cpettinato)
 
 ### Llamados Línea 147 de Atención (CABA)
+Este proyecto consiste de la normalización, limpieza y exploración de grandes cantidades de datos. El manejo de datos se hizo con SQL y la presentacion con Tableau.
+
+
+[**Gráficos exploratorios**](https://cpettinato.github.io/infovis/TP_Proyecto.html)
+
++ Mas información: [estado del dataset](), [informe]() y [queries]()
++ Compañeras de equipo: [Abril Noguera](https://github.com/abrilnoguera), [Camila Pettinato](https://github.com/cpettinato)
 
 ## Visualizaciones
