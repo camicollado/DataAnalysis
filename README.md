@@ -22,3 +22,7 @@ Este proyecto consiste de la normalización, limpieza y exploración de grandes 
 + Compañeras de equipo: [Abril Noguera](https://github.com/abrilnoguera), [Camila Pettinato](https://github.com/cpettinato)
 
 ## Visualizaciones
+
+## Machine Learning
+
+## Proyectos
